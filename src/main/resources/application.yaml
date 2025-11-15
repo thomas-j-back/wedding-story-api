@@ -1,0 +1,12 @@
+server:
+  port: 8080
+
+app:
+  bucket: my-image-bucket
+
+spring:
+  main:
+    banner-mode: "off"
+  jackson:
+    serialization:
+      INDENT_OUTPUT: true
