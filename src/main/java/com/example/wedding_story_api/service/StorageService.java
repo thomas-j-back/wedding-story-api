@@ -25,7 +25,7 @@ public class StorageService {
     public List<PresignedUrlDTO> createPresignedPutUrls(int count, String contentType, Duration ttl) {
         List<PresignedUrlDTO> out = new ArrayList<>();
         for (int i=0;i<count;i++) {
-            String key = "uploads/%s.jpg".formatted(UUID.randomUUID());
+            String key = "prototype_uploads/%s.jpg".formatted(UUID.randomUUID());
             PutObjectRequest putReq = PutObjectRequest.builder()
                     .bucket(bucket).key(key).contentType(contentType).build();
             PresignedPutObjectRequest presigned =

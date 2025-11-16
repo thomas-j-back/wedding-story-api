@@ -2,7 +2,12 @@ server:
   port: 8080
 
 app:
-  bucket: NULL
+  bucket: ${R2_BUCKET}
+r2:
+  account-id: ${R2_ACCOUNT_ID}
+  access-key: ${R2_ACCESS_KEY_ID}
+  secret-key: ${R2_SECRET_ACCESS_KEY}
+  endpoint: https://${r2.account-id}.rw.cloudflarestorage.com
 
 spring:
   main:
