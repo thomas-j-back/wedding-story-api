@@ -2,9 +2,14 @@ package com.example.wedding_story_api.controller;
 
 import com.example.wedding_story_api.dto.*;
 import com.example.wedding_story_api.service.JobService;
+import com.example.wedding_story_api.service.StorageService;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.time.Duration;
+
 
 @RestController
 @RequestMapping("/api")

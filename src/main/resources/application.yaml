@@ -2,7 +2,7 @@ server:
   port: 8080
 
 app:
-  bucket: my-image-bucket
+  bucket: NULL
 
 spring:
   main:
