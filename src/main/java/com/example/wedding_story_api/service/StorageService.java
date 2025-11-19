@@ -1,6 +1,6 @@
 package com.example.wedding_story_api.service;
 
-import com.example.wedding_story_api.dto.PresignedUrlDTO;
+import com.example.wedding_story_api.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

@@ -1,11 +1,9 @@
 package com.example.wedding_story_api.controller;
 
 import com.example.wedding_story_api.dto.*;
-import com.example.wedding_story_api.service.JobService;
-import com.example.wedding_story_api.service.StorageService;
+import com.example.wedding_story_api.service.*;
 import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.time.Duration;
@@ -20,7 +18,9 @@ public class JobController {
 
     @PostMapping("/upload-urls")
     public List<PresignedUrlDTO> createUploadUrls(@RequestBody CreateUploadDTO body) {
-        return storage.createPresignedPutUrls(body.count(), body.contentType(), Duration.ofMinutes(15));
+//        System.out.println(">>> Controller auth = " + authentication);
+
+        return storage.createPresignedPutUrls(body.count(), body.contentType(), Duration.ofMinutes(5));
     }
 
     @PostMapping("/jobs")
