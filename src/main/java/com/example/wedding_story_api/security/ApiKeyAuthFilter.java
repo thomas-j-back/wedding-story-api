@@ -31,7 +31,6 @@ public class ApiKeyAuthFilter extends BasicAuthenticationFilter {
     ) throws IOException, ServletException {
         System.out.println(">>> ApiKeyAuthFilter HIT: " + request.getMethod() + " " + request.getRequestURI());
 
-
         String apiKey = request.getHeader("X-Api-Key");
 
         if (apiKey != null && apiKey.equals(expectedApiKey)) {

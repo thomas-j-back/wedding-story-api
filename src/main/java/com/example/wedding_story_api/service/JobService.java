@@ -41,7 +41,7 @@ public class JobService {
             // get signed GET URLs for inputs if provider needs HTTP-accessible sources
             List<URI> refs = presignGet(req.inputKeys());
             ImageModelProvider.GenerationResult r =
-                    provider.generate(new ImageModelProvider.GenerationRequest(req.prompt(), refs, req.options()));
+                    provider.generate(new ImageModelProvider.GenerationRequest(req.prompt(), refs, req.options(), req.type(), req.inputContentTypes()));
             if (r.status() != ImageModelProvider.GenerationStatus.SUCCEEDED) {
                 j.status = r.status().name();
                 j.error  = r.error();
@@ -58,9 +58,6 @@ public class JobService {
         }
     }
 
-    private List<String> uploadResultsToS3(List<URI> uris) {
-        return Collections.emptyList();
-    }
 
     public JobStatusDTO status(String id) {
         Job j = jobs.get(id);
@@ -69,9 +66,13 @@ public class JobService {
         return new JobStatusDTO(j.getId(), j.getStatus(), urls, j.getError());
     }
 
-    // helpers ...
+
+    // stubs
     private List<URI> presignGet(List<String> keys) { /* .. */ return List.of(); }
     private String presignGetOnce(String key) { /* .. */ return ""; }
+    private List<String> uploadResultsToS3(List<URI> uris) {
+        return Collections.emptyList();
+    }
 
     @Data
     @AllArgsConstructor

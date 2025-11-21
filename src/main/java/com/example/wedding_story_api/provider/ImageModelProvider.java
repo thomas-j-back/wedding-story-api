@@ -1,5 +1,7 @@
 package com.example.wedding_story_api.provider;
 
+import com.example.wedding_story_api.dto.GenerationType;
+
 import java.net.URI;
 import java.security.ProviderException;
 import java.util.List;
@@ -11,7 +13,10 @@ public interface ImageModelProvider {
     record GenerationRequest(
             String prompt,
             List<URI> referenceImages, // S3 URLs or presigned GET URLs
-            Map<String,Object> options // model-specific knobs
+            Map<String,Object> options, // model-specific knobs
+            GenerationType type,
+            List<String> inputContentTypes
+
     ) {}
 
     record GenerationResult(
