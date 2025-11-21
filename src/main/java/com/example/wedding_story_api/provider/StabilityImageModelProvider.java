@@ -1,14 +1,17 @@
 package com.example.wedding_story_api.provider;
 
 import com.example.wedding_story_api.config.StabilityProperties;
+import com.example.wedding_story_api.dto.PresignedUrlDTO;
 import com.example.wedding_story_api.service.StorageService;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.security.ProviderException;
+import java.time.Duration;
 import java.util.*;
 
 import static com.example.wedding_story_api.dto.GenerationType.*;
@@ -20,6 +23,7 @@ public class StabilityImageModelProvider implements ImageModelProvider {
     private final StabilityProperties properties;
     private final StorageService storageService; // your own service for R2/S3
     private final WebClient.Builder webClientBuilder;
+    private final MediaType OUTPUT_MEDIA_TYPE = MediaType.IMAGE_PNG;
 
     public StabilityImageModelProvider(
             StabilityProperties properties,
@@ -34,24 +38,41 @@ public class StabilityImageModelProvider implements ImageModelProvider {
                 .baseUrl(properties.getBaseUrl())
                 .defaultHeader("Authorization", "Bearer " + properties.getApiKey())
                 .defaultHeader("accept", "image/*")
+                .codecs(configurer ->
+                        configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024) // 16 MB
+                )
                 .build();
     }
 
     @Override
     public GenerationResult generate(GenerationRequest req) throws ProviderException {
         //First get the presigned image data
-        GenerationResult res = null;
-        if (Objects.requireNonNull(req.type()) == STYLE_TRANSFER) {
-            res = handleStyleTransfer(req);
-//            case TEXT_TO_IMAGE -> handleTxt2Img(req);
-//            case IMAGE_TO_IMAGE -> handleImg2Img(req);
-        }
+        return switch(req.type()) {
+            case STYLE_TRANSFER -> handleStyleTransfer(req);
+            case TEXT_TO_IMAGE -> handleTxt2Img(req);
 
-        return res;
+            default -> new GenerationResult(
+                    UUID.randomUUID().toString(),
+                    GenerationStatus.FAILED,
+                    List.of(),
+                    "Unsupported generation type: " + req.type()
+            );
+        };
+
 
     }
 
-    private GenerationResult handleStyleTransfer(GenerationRequest req) { try {
+    private GenerationResult handleTxt2Img(GenerationRequest req) {
+        return new GenerationResult(
+                UUID.randomUUID().toString(),
+                GenerationStatus.FAILED,
+                List.of(),
+                "This generationType is not implemented yet"
+        );
+    }
+
+    private GenerationResult handleStyleTransfer(GenerationRequest req) {
+        try {
         if (req.referenceImages() == null || req.referenceImages().size() < 2) {
             return new GenerationResult(
                     UUID.randomUUID().toString(),
@@ -81,21 +102,21 @@ public class StabilityImageModelProvider implements ImageModelProvider {
 //        if (req.prompt() != null && !req.prompt().isBlank()) {
 //            builder.part("prompt", req.prompt());
 //        }
-        builder.part("prompt", "use only the colors from the style_image. Keep all the characteristics from the person in the init_image but in the style of style_image");
-
-        builder.part("style_strength", 0.1);
+        builder.part("style_strength", "0.95");
+        builder.part("prompt", "recreate the person in the photo as a simple character using the same exact hand drawn style of the people in the style image. Only use solid colors that exist in the style image");
+        builder.part("negative_prompt", "do not keep realistic details or a detailed background, background should be one color from the style image");
         builder.part("output_format", "png");
 
        byte[] generationResBytes = webClient.post()
-               .uri("/v2beta/stable-image/control/style")
+               .uri("/v2beta/stable-image/control/style-transfer")
                .contentType(MediaType.MULTIPART_FORM_DATA)
-               .accept(MediaType.IMAGE_PNG)
+               .accept(MediaType.valueOf("image/*"))
                .bodyValue(builder.build())
                .retrieve()
                .bodyToMono(byte[].class)
                .block();
 
-        if (generationResBytes == null || generationResBytes.length == 0) {
+       if (generationResBytes == null || generationResBytes.length == 0) {
             return new GenerationResult(
                     UUID.randomUUID().toString(),
                     GenerationStatus.FAILED,
@@ -103,16 +124,32 @@ public class StabilityImageModelProvider implements ImageModelProvider {
                     "Empty image from Stability style transfer"
             );
         }
+        String generatedKey = "character_outputs/" + UUID.randomUUID().toString() + ".png";
+        storeResult(generationResBytes, this.OUTPUT_MEDIA_TYPE, generatedKey);
+//
+//        //we need to give front end a get url to display image
+//        URI getUrl  = URI.create(this.storageService.generatePresignedGet(generatedKey, Duration.ofMinutes(5)));
 
+        return new GenerationResult(
+                UUID.randomUUID().toString(),
+                GenerationStatus.SUCCEEDED,
+                List.of(generatedKey),
+                null
+        );
 
 
     } catch (RuntimeException e) {
-
+        return new GenerationResult(
+                UUID.randomUUID().toString(),
+                GenerationStatus.FAILED,
+                List.of(),
+                "Runtime Exception error occurred on Stability API call: " + e.getMessage()
+        );
         }
     }
 
-    private URI storeResult(byte[] result, MediaType contentType) {
-
+    private URI storeResult(byte[] result, MediaType contentType, String someKey){
+        return storageService.uploadImageToBucket(result, contentType, someKey);
     }
 
     /**
@@ -143,10 +180,10 @@ public class StabilityImageModelProvider implements ImageModelProvider {
 
     private String getSuffixFromMediaType(MediaType type) {
 
-        if(type == MediaType.IMAGE_JPEG) {
+        if(type.toString().contains("jpg") || type.toString().contains("jpeg")) {
             return".jpg";
         }
-        if(type == MediaType.IMAGE_PNG)
+        if(type.toString().contains("png"))
             return ".png";
         return "";
     }
@@ -157,4 +194,5 @@ public class StabilityImageModelProvider implements ImageModelProvider {
     public interface ImageStorageService {
         URI storeGeneratedImage(InputStream imageStream, String contentType) throws Exception;
     }
+
 }

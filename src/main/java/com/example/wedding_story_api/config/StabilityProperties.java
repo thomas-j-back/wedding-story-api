@@ -1,14 +1,16 @@
 package com.example.wedding_story_api.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @ConfigurationProperties(prefix = "stability")
 public class StabilityProperties {
-    private String apiKey;
+//    private String apiKey;
+    private @Value("${STABILITY_API_KEY}") String apiKey;
 
-    private String baseUrl;
+    private String baseUrl = "https://api.stability.ai";
 
     /**
      * Default model name/id, if you want

@@ -21,8 +21,8 @@ public interface ImageModelProvider {
 
     record GenerationResult(
             String providerJobId,
-            GenerationStatus status,          // QUEUED | RUNNING | SUCCEEDED | FAILED
-            List<URI> outputImages,           // may be empty until finished
+            GenerationStatus status,          // QUEUED | RUNNING | SUCCEEDED | FAILED// may be empty until finished
+            List<String> outputKeys,
             String error                      // if failed
     ) {}
 

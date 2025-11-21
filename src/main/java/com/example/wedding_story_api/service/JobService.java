@@ -10,10 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -48,8 +46,9 @@ public class JobService {
                 return;
             }
             // upload provider outputs to S3 (if provider returns bytes) or copy from remote URL
-            List<String> keys = uploadResultsToS3(r.outputImages()); // or download+put
+            List<String> keys = r.outputKeys(); // or download+put
             j.outputKeys = keys;
+
 
             j.status = "SUCCEEDED";
         } catch (Exception ex) {
@@ -68,8 +67,18 @@ public class JobService {
 
 
     // stubs
-    private List<URI> presignGet(List<String> keys) { /* .. */ return List.of(); }
-    private String presignGetOnce(String key) { /* .. */ return ""; }
+    private List<URI> presignGet(List<String> keys) {
+        List<URI> result = new ArrayList<>();
+        for(String key: keys) {
+            result.add(URI.create(this.storage.generatePresignedGet(key, Duration.ofMinutes(5))));
+        }
+        return result;
+
+
+    }
+    private String presignGetOnce(String key) {
+        return this.storage.generatePresignedGet(key, Duration.ofMinutes(5));
+    }
     private List<String> uploadResultsToS3(List<URI> uris) {
         return Collections.emptyList();
     }

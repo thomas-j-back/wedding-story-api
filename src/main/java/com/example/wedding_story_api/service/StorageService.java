@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 
 import java.io.File;
@@ -46,11 +48,39 @@ public class StorageService {
                     .get()
                     .uri(getUrl)
                     .retrieve()
-                    .bodyToMono(byte[].class)
+                     .bodyToMono(byte[].class)
                     .block();
         } catch(WebClientResponseException e) {
             System.out.println(e.getMessage());
             throw e;
         }
+    }
+    public String generatePresignedGet(String key, Duration ttl) {
+        GetObjectRequest getReq = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .build();
+
+        GetObjectPresignRequest presignReq = GetObjectPresignRequest.builder()
+                .signatureDuration(ttl)
+                .getObjectRequest(getReq)
+                .build();
+
+        var presigned = presigner.presignGetObject(presignReq);
+
+        return presigned.url().toString();
+    }
+
+    public URI uploadImageToBucket(byte[] image, MediaType contentType, String key) {
+        PutObjectRequest req = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(contentType.toString())
+                .build();
+
+        s3.putObject(req, software.amazon.awssdk.core.sync.RequestBody.fromBytes(image));
+
+        // Return a key or full URI; usually key is enough, you later presign for GET
+        return URI.create("r2://" + "protoype-wed-bucket" + "/" + key);
     }
 }
