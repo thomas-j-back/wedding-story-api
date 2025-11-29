@@ -127,9 +127,6 @@ public class StabilityImageModelProvider implements ImageModelProvider {
         String generatedKey = "character_outputs/" + UUID.randomUUID().toString() + ".png";
         storeResult(generationResBytes, this.OUTPUT_MEDIA_TYPE, generatedKey);
 //
-//        //we need to give front end a get url to display image
-//        URI getUrl  = URI.create(this.storageService.generatePresignedGet(generatedKey, Duration.ofMinutes(5)));
-
         return new GenerationResult(
                 UUID.randomUUID().toString(),
                 GenerationStatus.SUCCEEDED,

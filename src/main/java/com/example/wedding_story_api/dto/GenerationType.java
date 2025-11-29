@@ -6,5 +6,6 @@ public enum GenerationType {
     IMAGE_TO_IMAGE,
     UPSCALE,
     INPAINT,
-    OUTPAINT
+    OUTPAINT,
+
 }

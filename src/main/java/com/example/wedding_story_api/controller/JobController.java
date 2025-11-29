@@ -18,8 +18,6 @@ public class JobController {
 
     @PostMapping("/upload-urls")
     public List<PresignedUrlDTO> createUploadUrls(@RequestBody CreateUploadDTO body) {
-//        System.out.println(">>> Controller auth = " + authentication);
-
         return storage.createPresignedPutUrls(body.count(), body.contentType(), Duration.ofMinutes(5));
     }
 
@@ -32,5 +30,12 @@ public class JobController {
     @GetMapping("/jobs/{id}")
     public JobStatusDTO get(@PathVariable String id) {
         return jobs.status(id);
+    }
+
+    //One time request to get url from key
+    @PostMapping("/presign/get")
+    public PresignGetResponse presignGet(@RequestBody PresignGetRequest req) {
+        String getUrl = storage.generatePresignedGet(req.key(), Duration.ofMinutes(5));
+        return new PresignGetResponse(getUrl);
     }
 }

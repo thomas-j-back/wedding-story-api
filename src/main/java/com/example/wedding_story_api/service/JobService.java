@@ -62,7 +62,7 @@ public class JobService {
         Job j = jobs.get(id);
         if (j == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         List<String> urls = j.getOutputKeys().stream().map(this::presignGetOnce).toList();
-        return new JobStatusDTO(j.getId(), j.getStatus(), urls, j.getError());
+        return new JobStatusDTO(j.getId(), j.getStatus(), j.getOutputKeys(), urls, j.getError());
     }
 
 
