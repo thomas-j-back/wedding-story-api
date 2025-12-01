@@ -27,4 +27,6 @@ public interface ImageModelProvider {
     ) {}
 
     enum GenerationStatus { QUEUED, RUNNING, SUCCEEDED, FAILED }
+
+
 }

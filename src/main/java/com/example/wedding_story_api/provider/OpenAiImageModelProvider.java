@@ -3,18 +3,26 @@ package com.example.wedding_story_api.provider;
 import com.example.wedding_story_api.config.OpenAiProperties;
 import com.example.wedding_story_api.config.StabilityProperties;
 import com.example.wedding_story_api.dto.CreateJobRequest;
+import com.example.wedding_story_api.dto.OpenAi.ResponsesApi;
 import com.example.wedding_story_api.service.StorageService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.security.ProviderException;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+@Component
 public class OpenAiImageModelProvider implements ImageModelProvider{
 
     private final WebClient webClient;
@@ -46,21 +54,30 @@ public class OpenAiImageModelProvider implements ImageModelProvider{
     public GenerationResult generate(GenerationRequest req) throws ProviderException {
 
         //First get the presigned image data
-        return switch(req.type()) {
-            case STYLE_TRANSFER -> handleStyleTransfer(req);
+        try {
+            return switch (req.type()) {
+                case STYLE_TRANSFER -> handleStyleTransfer(req);
 //            case TEXT_TO_IMAGE -> handleTxt2Img(req);
 
-            default -> new GenerationResult(
+                default -> new GenerationResult(
+                        UUID.randomUUID().toString(),
+                        GenerationStatus.FAILED,
+                        List.of(),
+                        "Unsupported generation type: " + req.type()
+                );
+            };
+        } catch(JsonProcessingException e) {
+            return new GenerationResult(
                     UUID.randomUUID().toString(),
                     GenerationStatus.FAILED,
                     List.of(),
-                    "Unsupported generation type: " + req.type()
+                    e.getMessage()
             );
-        };
+        }
 
     }
 
-    public GenerationResult handleStyleTransfer(GenerationRequest req) {
+    public GenerationResult handleStyleTransfer(GenerationRequest req) throws JsonProcessingException {
         if (req.referenceImages() == null || req.referenceImages().size() < 2) {
             return new GenerationResult(
                     UUID.randomUUID().toString(),
@@ -71,16 +88,70 @@ public class OpenAiImageModelProvider implements ImageModelProvider{
         }
 
 
-        webClient.post()
+        String json = webClient.post()
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(createStyleTransferRequestBody(
-                        "gtp-5",
+                        "gpt-5",
                         req.referenceImages().getFirst(),
                         req.referenceImages().get(1),
-                        "")
+                        "The FIRST image shows the CHARACTERS I care about. The SECOND image shows the STYLE I want. Generate a new image that keeps the characters, poses, and composition of the FIRST image, but redraws them in the art style, colors, and line quality of the SECOND image.")
                 )
                 .retrieve()
-                .bodyToMono(Void.class);
+                .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                        clientResponse -> clientResponse.bodyToMono(String.class)
+                                .flatMap(errorBody -> {
+                                    System.err.println("OpenAI error: " + clientResponse.statusCode());
+                                    System.err.println("Error body: " + errorBody);
+                                    return Mono.error(new RuntimeException(
+                                            "OpenAI API error " + clientResponse.statusCode() + ": " + errorBody
+                                    ));
+                                })
+                )
+                .bodyToMono(String.class)
+                .block();
+
+
+       JsonNode root = mapper.readTree(json);
+
+        JsonNode output = root.get("output");
+
+        for (JsonNode item : output) {
+            String type = item.get("type").asText();
+
+            switch (type) {
+                case "output_text" -> {
+                    String text = item.get("content").get(0).get("text").asText();
+                    System.out.println("Generated text: " + text);
+                }
+                case "tool_call" -> {
+                    JsonNode params = item.get("parameters");
+                    System.out.println("Tool call params: " + params);
+                }
+                case "image_generation_call" -> {
+                    String base64 = item.get("result").asText();
+                    String generatedKey = "character_outputs/" + UUID.randomUUID().toString() + ".png";
+                    byte[] imagebytes = Base64.getDecoder().decode(base64);
+
+                    storageService.uploadImageToBucket(imagebytes, this.OUTPUT_MEDIA_TYPE, generatedKey);
+
+                    return new GenerationResult(
+                            UUID.randomUUID().toString(),
+                            GenerationStatus.SUCCEEDED,
+                            List.of(generatedKey),
+                            null
+                    );
+                }
+            }
+        }
+
+        return new GenerationResult(
+                UUID.randomUUID().toString(),
+                GenerationStatus.FAILED,
+                List.of(),
+                "No output image response contained in output from OpenAi Response api"
+        );
+
+
 
         /**
          * {
@@ -95,34 +166,57 @@ public class OpenAiImageModelProvider implements ImageModelProvider{
          *     "format": "png"
          *   }
          * }
+         *
+         *
+         * Full example
+         * "output": [
+         *     {
+         *       "type": "tool_call",
+         *       "tool_name": "image_generation",
+         *       "parameters": {
+         *         "prompt": "A detailed prompt combining style and characters",
+         *         "size": "1024x1024",
+         *         "quality": "high"
+         *       }
+         *     },
+         *     {
+         *       "type": "output_image",
+         *       "image": {
+         *         "format": "png",
+         *         "data": "iVBORw0KGgoAAAANSUhEUgAA..."
+         *       }
+         *     }
+         *   ],
          */
 
     }
 
-    public ObjectNode createStyleTransferRequestBody(String model, URI styleImageGetUri, URI inputImageGetUri, String prompt) {
+    private URI storeResult(byte[] result, MediaType contentType, String someKey){
+        return storageService.uploadImageToBucket(result, contentType, someKey);
+    }
 
-        ObjectNode inputText = _createContentObj("input_text", "The FIRST image shows the CHARACTERS I care about. The SECOND image shows the STYLE I want. Generate a new image that keeps the characters, poses, and composition of the FIRST image, but redraws them in the art style, colors, and line quality of the SECOND image.");
-
-        ObjectNode inputImage =  _createContentObj("input_image", inputImageGetUri.toString());
-
-        ObjectNode styleImage = _createContentObj("input_image", styleImageGetUri.toString());
-
-        ArrayNode contentArray = mapper.createArrayNode()
-                .add(inputText)
-                .add(inputImage)
-                .add(styleImage);
-        ObjectNode inputObj = mapper.createObjectNode();
-        inputObj.put("content", contentArray);
-        inputObj.put("role", "user");
-
-        ArrayNode inputArray = mapper.createArrayNode();
-        inputArray.add(inputObj);
-
-        ObjectNode body = mapper.createObjectNode();
-        body.put("input", inputArray);
-        body.put("model", model);
-
-        body.put("tools" ,_createToolsOptions());
+    public Map<String, Object> createStyleTransferRequestBody(String model, URI inputImageGetUri, URI styleImageGetUri, String prompt) {
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "input", List.of(
+                        Map.of(
+                                "role", "user",
+                                "content", List.of(
+                                        Map.of("type", "input_text", "text", prompt),
+                                        Map.of("type", "input_image", "image_url", inputImageGetUri),
+                                        Map.of("type", "input_image", "image_url", styleImageGetUri)
+                                )
+                        )
+                ),
+                "tools", List.of(
+                        Map.of(
+                                "type", "image_generation",
+                                "model", "gpt-image-1",
+                                "size", "1024x1024"
+                        )
+                ),
+                "tool_choice", "auto"
+        );
 
         return body;
     }
@@ -156,7 +250,7 @@ public class OpenAiImageModelProvider implements ImageModelProvider{
 
     }
 
-    private ObjectNode _createContentObj(String type, String content, ) {
+    private ObjectNode _createContentObj(String type, String content ) {
         ObjectNode input = mapper.createObjectNode();
         input.put("type", type);
         String contentKey = "text";
