@@ -94,7 +94,7 @@ public class OpenAiImageModelProvider implements ImageModelProvider{
                         "gpt-5",
                         req.referenceImages().getFirst(),
                         req.referenceImages().get(1),
-                        "The FIRST image shows the CHARACTERS I care about. The SECOND image shows the STYLE I want. Generate a new image that keeps the characters, poses, and composition of the FIRST image, but redraws them in the art style, colors, and line quality of the SECOND image.")
+                        "The FIRST image shows the CHARACTERS I care about. The SECOND image shows the STYLE I want. Generate a new image that keeps the characters of the FIRST image, but redraws them in the art style, colors, and line quality of the SECOND image. Please redraw the characters lined up next to each other full body, with some space in between, regardless of their position in the original picture.")
                 )
                 .retrieve()
                 .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
