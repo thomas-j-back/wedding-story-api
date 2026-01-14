@@ -1,2 +1,4 @@
+com/example/wedding_story_api/config/StabilityProperties.class
 com/example/wedding_story_api/WeddingStoryApiApplication.class
+com/example/wedding_story_api/config/OpenAiProperties.class
 com/example/wedding_story_api/beans/S3Config.class
